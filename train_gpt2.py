@@ -305,7 +305,6 @@ val_loader = DataLoaderLite(B=B, T=T, process_rank=ddp_rank, num_processes=ddp_w
 torch.set_float32_matmul_precision('high')
 
 model = GPT(GPTConfig(vocab_size=50304))
-model.eval()
 model.to(device)
 use_compile = False
 if use_compile:
@@ -360,6 +359,16 @@ for step in range(max_steps):
             print(f"validation loss: {val_loss_accum.item():.4f}")
             with open(log_file, "a") as f:
                 f.write(f"{step} val {val_loss_accum.item():.4f}\n")
+            ## save model checkpoint
+            if step > 0 and (step % 5000 == 0 or last_step):
+                checkpoint_path = os.path.join(log_dir, f"model_{step:05d}.pt")
+                checkpoint = {
+                    'model': raw_model.state_dict(),
+                    'config': raw_model.config,
+                    'step': step,
+                    'val_loss': val_loss_accum.item()
+                }
+                torch.save(checkpoint, checkpoint_path)
 
     # once in a while evaluate hellaswag
     if (step % 250 == 0 or last_step) and (not use_compile):
